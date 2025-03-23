@@ -37,13 +37,35 @@ export const getExpenses = async (req, res) => {
         res.status(500).json({ error: "Failed to fetch expenses" });
     }
 };
-export const editExpense = async (req, res) => {
+export const getExpenseById = async (req, res) => {
     const expense = await Expense.findById(req.params.id);
     if (!expense) {
       return res.status(404).json({ error: "Expense not found" });
     }
     res.json(expense);
   };
+
+// Update an existing expense
+export const updateExpense = async (req, res) => {
+  try {
+    const { categoryId, quantity, amount, date } = req.body;
+
+    const updatedExpense = await Expense.findByIdAndUpdate(
+      req.params.id,
+      { category: categoryId, quantity, amount, date },
+      { new: true } // Returns the updated document
+    );
+
+    if (!updatedExpense) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+
+    res.json(updatedExpense);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update expense" });
+  }
+};
+
   
 
 // ✅ Delete Expense
@@ -55,6 +77,8 @@ export const deleteExpense = async (req, res) => {
         res.status(500).json({ error: "Failed to delete expense" });
     }
 };
+
+
 
 // ✅ Expense Summary Grouped by Category
 export const getExpenseSummary = async (req, res) => {
