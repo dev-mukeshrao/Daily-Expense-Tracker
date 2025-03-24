@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { 
-  Container, Typography, List, ListItem, ListItemText, Paper, Button, IconButton 
+  Container, Typography, Card, CardContent, CardActions, 
+  IconButton, Fab, Box, Switch, Grid 
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
+import { Delete, Edit, Add } from "@mui/icons-material";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
@@ -16,72 +16,115 @@ interface Expense {
   quantity: number;
   amount: number;
   date: string;
+  isRecurring: boolean;
 }
 
 export default function Home() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const router = useRouter();
 
-  // Fetch Expenses
   useEffect(() => {
     axios.get("http://localhost:5001/api/expenses")
       .then(response => setExpenses(response.data))
       .catch(error => console.error("Error fetching expenses:", error));
   }, []);
 
-  // Delete Expense
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this expense?")) return;
-    
     try {
       await axios.delete(`http://localhost:5001/api/expenses/${id}`);
-      setExpenses(expenses.filter(expense => expense._id !== id)); // Remove from state
+      setExpenses(expenses.filter(expense => expense._id !== id));
     } catch (error) {
       console.error("Error deleting expense:", error);
     }
   };
 
-  // Edit Expense
-  const handleEdit = (id: string) => {
-    router.push(`/edit-expense/${id}`);
+  const handleToggleRecurring = async (id: string) => {
+    try {
+      await axios.patch(`http://localhost:5001/api/expenses/${id}/toggle-recurring`);
+      setExpenses(expenses.map(exp =>
+        exp._id === id ? { ...exp, isRecurring: !exp.isRecurring } : exp
+      ));
+    } catch (error) {
+      console.error("Error updating recurring status:", error);
+    }
   };
 
   return (
-    <Container maxWidth="sm">
-      <Typography variant="h4" gutterBottom>Expense Tracker</Typography>
-      
-      <Button 
-        variant="contained" 
-        color="primary" 
-        onClick={() => router.push("/add-expense")} 
-        sx={{ mb: 2 }}>
-        Add Expense
-      </Button>
+    <Container maxWidth="lg" sx={{ mt: 12, pb: 8 }}> 
+      <Typography variant="h4" align="center" gutterBottom>
+        Expense Tracker
+      </Typography>
 
-      <Paper elevation={3} sx={{ padding: 2 }}>
-        <List>
+      {expenses.length > 0 ? (
+        <Grid container spacing={2} justifyContent="center">
           {expenses.map((expense) => (
-            <ListItem 
-              key={expense._id} 
-              secondaryAction={
-                <>
-                  <IconButton onClick={() => handleEdit(expense._id)} color="primary">
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton onClick={() => handleDelete(expense._id)} color="error">
-                    <DeleteIcon />
-                  </IconButton>
-                </>
-              }
-            >
-              <ListItemText 
-                primary={`${dayjs(expense.date).format("DD MMM YYYY")} - ${expense.category?.name}`} 
-                secondary={`Qty: ${expense.quantity} | ₹${expense.amount}`} 
-              />
-            </ListItem>
+            <Grid item xs={12} sm={6} md={2.4} key={expense._id}>
+              <Card sx={{ 
+                p: 2, borderRadius: 3, 
+                boxShadow: 4, transition: "0.3s", 
+                "&:hover": { boxShadow: 6 },
+                maxWidth: 200, // Ensures small card size
+                mx: "auto" // Centers the card
+              }}>
+                <CardContent>
+                  <Typography variant="h6" fontWeight="bold">{expense.category?.name}</Typography>
+                  <Typography color="textSecondary">📅 {dayjs(expense.date).format("DD/MM/YYYY")}</Typography>
+                  <Typography>🔢 Quantity: {expense.quantity}</Typography>
+                  <Typography color="primary" fontWeight="bold">💰 Total: ₹{expense.amount}</Typography>
+                  <Typography sx={{ color: expense.isRecurring ? "green" : "gray" }}>
+                    🔄 Recurring: {expense.isRecurring ? "Yes" : "No"}
+                  </Typography>
+                </CardContent>
+
+                <CardActions sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Switch
+                    checked={expense.isRecurring}
+                    onChange={() => handleToggleRecurring(expense._id)}
+                    color="primary"
+                  />
+                  
+                  <Box>
+                    <IconButton 
+                      color="primary" 
+                      onClick={() => router.push(`/edit-expense/${expense._id}`)} 
+                      sx={{ transition: "0.2s", "&:hover": { transform: "scale(1.1)" } }}
+                    >
+                      <Edit />
+                    </IconButton>
+                    <IconButton 
+                      color="error" 
+                      onClick={() => handleDelete(expense._id)}
+                      sx={{ transition: "0.2s", "&:hover": { transform: "scale(1.1)" } }}
+                    >
+                      <Delete />
+                    </IconButton>
+                  </Box>
+                </CardActions>
+              </Card>
+            </Grid>
           ))}
-        </List>
-      </Paper>
+        </Grid>
+      ) : (
+        <Typography align="center" color="textSecondary">
+          No expenses recorded yet.
+        </Typography>
+      )}
+
+      {/* Floating "Add Expense" Button */}
+      <Box sx={{ position: "fixed", bottom: 16, right: 16 }}>
+        <Fab 
+          color="primary" 
+          aria-label="add" 
+          onClick={() => router.push("/add-expense")}
+          sx={{ 
+            boxShadow: 4, 
+            transition: "0.3s", 
+            "&:hover": { boxShadow: 6, transform: "scale(1.1)" } 
+          }}
+        >
+          <Add />
+        </Fab>
+      </Box>
     </Container>
   );
 }

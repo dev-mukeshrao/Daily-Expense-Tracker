@@ -1,10 +1,15 @@
 
 import Expense from "../models/Expense.js";
 import Category from "../models/Category.js"; // Import Category model
+import dayjs from "dayjs";
 
 // ✅ Add Expense with quantity & unitPrice calculation
 export const addExpense = async (req, res) => {
     try {
+
+
+      console.log("Adding expense -- ", req.body);
+      
         const { categoryId, quantity, date } = req.body;
 
         // 🔍 Check if category exists
@@ -37,6 +42,8 @@ export const getExpenses = async (req, res) => {
         res.status(500).json({ error: "Failed to fetch expenses" });
     }
 };
+
+
 export const getExpenseById = async (req, res) => {
     const expense = await Expense.findById(req.params.id);
     if (!expense) {
@@ -118,3 +125,75 @@ export const getExpenseSummary = async (req, res) => {
         res.status(500).json({ error: "Failed to fetch summary" });
     }
 };
+
+
+// 📌 Add Recurring Expense
+export const handleRecurringExpenses = async (req, res) => {
+  try {
+    const { categoryId, quantity, amount, date, isRecurring, frequency } = req.body;
+    console.log("IsRecurring : ", isRecurring);
+    const category = await Category.findById(categoryId);
+    if (isRecurring && !frequency) {
+      return res.status(400).json({ message: "Frequency is required for recurring expenses" });
+    }
+
+    // Calculate next occurrence date
+    let nextOccurrence = null;
+    if (isRecurring) {
+      nextOccurrence = calculateNextOccurrence(date, frequency);
+    }
+
+    const expense = new Expense({
+      category,
+      quantity,
+      amount,
+      date,
+      isRecurring,
+      frequency,
+      nextOccurrence,
+    });
+
+    await expense.save();
+    res.status(201).json({ message: "Recurring expense added successfully", expense });
+  } catch (error) {
+    res.status(500).json({ message: "Error adding expense", error });
+  }
+};
+
+// 📌 Function to Calculate Next Occurrence
+const calculateNextOccurrence = (date, frequency) => {
+  switch (frequency) {
+    case "daily":
+      return dayjs(date).add(1, "day").toDate();
+    case "weekly":
+      return dayjs(date).add(1, "week").toDate();
+    case "monthly":
+      return dayjs(date).add(1, "month").toDate();
+    case "yearly":
+      return dayjs(date).add(1, "year").toDate();
+    default:
+      return null;
+  }
+};
+
+export const toggleRecurringExpense = async (req, res) => {
+  try {
+    const { expenseId } = req.params;
+    const expense = await Expense.findById(expenseId);
+
+    if (!expense) {
+      return res.status(404).json({ message: "Expense not found" });
+    }
+
+    expense.isRecurring = !expense.isRecurring; // Toggle the recurring state
+    await expense.save();
+
+    res.json({ message: "Recurring status updated", expense });
+  } catch (error) {
+    console.error("Error updating recurring status:", error);
+    res.status(500).json({ message: "Failed to update expense" });
+  }
+};
+
+
+
